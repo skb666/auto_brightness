@@ -67,9 +67,9 @@ def getBrightness():
     im=Image.fromarray(gray)
     stat=ImageStat.Stat(im)
     brightness = int(stat.rms[0]*100/255)
-    return brightness if brightness <= 80 else 80
 
     cap.release()
+    return brightness
 
 
 def checkConfig(sign=True):
@@ -104,12 +104,19 @@ def main():
         if not cfg['pause_flag']:
             brightness_cur = getBrightness()
 
-            if abs(brightness_cur - brightness_old) < 25:
+            tmp = brightness_cur - brightness_old
+            if abs(tmp) < 10:
+                change = brightness_cur
+            elif abs(tmp) < 20:
                 sbc.set_brightness(brightness_cur)
                 change = brightness_cur
             else:
-                sbc.set_brightness((brightness_cur+brightness_old)//2)
-                change = (brightness_cur+brightness_old)//2
+                if tmp > 0:
+                    sbc.set_brightness(brightness_old + 20)
+                    change = brightness_old + 20
+                else:
+                    sbc.set_brightness(brightness_old - 20)
+                    change = brightness_old - 20
 
             brightness_old = change
 
