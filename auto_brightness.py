@@ -23,6 +23,8 @@ cfg = {
 }
 
 exit_flag = False
+update_flag = False
+
 
 #把时间戳转化为时间: 1479264792 to 2016-11-16 10:53:12
 def TimeStampToTime(timestamp):
@@ -69,15 +71,16 @@ def getBrightness():
     brightness = int(stat.rms[0]*100/255)
 
     cap.release()
+    
     return brightness
 
 
 def checkConfig(sign=True):
-    global mtime_cur, mtime_old, cfg, exit_flag
+    global mtime_cur, mtime_old, cfg, exit_flag, update_flag
 
     while True:
-        currentpath=os.path.abspath('.')
-        yamlpath=glob.glob(os.path.join(currentpath,'*.yml'))
+        currentpath = os.path.abspath('.')
+        yamlpath = glob.glob(os.path.join(currentpath,'*.yml'))
 
         if yamlpath:
             mtime_old = mtime_cur
@@ -85,6 +88,7 @@ def checkConfig(sign=True):
             if mtime_cur != mtime_old:
                 lock.acquire()
                 updateConfig(yamlpath[0])
+                update_flag = True
                 lock.release()
 
                 if cfg['debug_flag']:
@@ -95,50 +99,53 @@ def checkConfig(sign=True):
 
 
 def main():
-    global brightness_cur, brightness_old, cfg, exit_flag
+    global brightness_cur, brightness_old, cfg, exit_flag, update_flag
 
     while True:
-        if exit_flag:
-            return
-
         if not cfg['pause_flag']:
             brightness_cur = getBrightness()
 
-            tmp = brightness_cur - brightness_old
-            if abs(tmp) < 20:
-                sbc.set_brightness(brightness_cur)
-                change = brightness_cur
+            change = brightness_cur - brightness_old
+            if abs(change) < 20:
+                tmp = brightness_cur
             else:
-                if tmp > 0:
-                    sbc.set_brightness(brightness_old + 20)
-                    change = brightness_old + 20
+                if change > 0:
+                    tmp = brightness_old + 20
+                    if tmp > 100:
+                        tmp = 100
                 else:
-                    sbc.set_brightness(brightness_old - 20)
-                    change = brightness_old - 20
-
-            brightness_old = change
+                    tmp = brightness_old - 20
+                    if tmp < 0:
+                        tmp = 0
+            sbc.set_brightness(tmp)
+            brightness_old = tmp
 
             if cfg['debug_flag']:
-                print(f'brightness: {brightness_cur}\nbrightness_old: {brightness_old}\nchange: {change}')
+                print(f'brightness: {brightness_cur}\nbrightness_old: {brightness_old}\nchange: {tmp}')
                 print('#'*20)
 
-            time.sleep(cfg['sleep_time'])
+            for i in range(cfg['sleep_time']):
+                if exit_flag:
+                    return
+                if update_flag:
+                    update_flag = False
+                    break
+                time.sleep(1)
 
 
 def trayIcon():
     global cfg, exit_flag
 
     hover_text = "Automatic Brightness"
-    currentpath=os.path.abspath('./icons')
-    running_icon = os.path.join(currentpath,'running.ico')
-    stopping_icon = os.path.join(currentpath,'stopping.ico')
+    running_icon = os.path.join('./icons','running.ico')
+    stopping_icon = os.path.join('./icons','stopping.ico')
 
     def switchStatus(sysTrayIcon):
         global cfg
         nonlocal stopping_icon, running_icon
 
-        curpath=os.path.abspath('.')
-        yamlpath=glob.glob(os.path.join(curpath,'*.yml'))
+        currentpath = os.path.abspath('.')
+        yamlpath = glob.glob(os.path.join(currentpath,'*.yml'))
 
         if sysTrayIcon.icon is running_icon:
             sysTrayIcon.icon = stopping_icon
@@ -163,8 +170,8 @@ def trayIcon():
         def set_interval(sysTrayIcon):
             global cfg
 
-            currentpath=os.path.abspath('.')
-            yamlpath=glob.glob(os.path.join(currentpath,'*.yml'))
+            currentpath = os.path.abspath('.')
+            yamlpath = glob.glob(os.path.join(currentpath,'*.yml'))
 
             lock.acquire()
             if yamlpath:
