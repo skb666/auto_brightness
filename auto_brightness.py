@@ -105,9 +105,7 @@ def main():
             brightness_cur = getBrightness()
 
             tmp = brightness_cur - brightness_old
-            if abs(tmp) < 10:
-                change = brightness_cur
-            elif abs(tmp) < 20:
+            if abs(tmp) < 20:
                 sbc.set_brightness(brightness_cur)
                 change = brightness_cur
             else:
